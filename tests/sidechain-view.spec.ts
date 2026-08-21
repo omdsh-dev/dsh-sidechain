@@ -129,15 +129,18 @@ describe('transcriptRows', () => {
     ])
   })
 
-  it('drops the fork boundary prompt row', () => {
+  it('strips the boundary envelope and keeps the user question', () => {
     const rows = transcriptRows(ent(
       event('session/end-seed', 1, {}),
       event('user/message', 2, {
-        content: [{ type: 'text', text: 'Side conversation boundary.\n\nEverything before this boundary is reference context only.' }],
+        content: [{ type: 'text', text: 'Side conversation boundary.\n\nEverything before this boundary is reference context only.\n\nMode: this is a /btw one-shot side question. Answer once.\n\n这个目录下哪个文件最大？' }],
       }),
       event('assistant/message', 3, { message: { content: [{ type: 'text', text: '好的' }] } }),
     ))
-    expect(rows).toEqual([{ kind: 'assistant', seq: 3, text: '好的' }])
+    expect(rows).toEqual([
+      { kind: 'user', seq: 2, text: '这个目录下哪个文件最大？' },
+      { kind: 'assistant', seq: 3, text: '好的' },
+    ])
   })
 
   it('accumulates text-delta chunks into a streaming row and supersedes it with the assembled message', () => {

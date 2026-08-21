@@ -71,8 +71,25 @@ export type TranscriptRow =
   }
   | { kind: 'tool'; seq: number; name: string; failed: boolean; detail?: ToolDetail | undefined }
 
-/** The fork boundary prompt's first line (dropped from the transcript). */
+/** The fork boundary prompt's first line (marker for the side boundary message). */
 const BOUNDARY_PREFIX = 'Side conversation boundary'
+
+/**
+ * Strip the internal side-conversation boundary envelope off an opening user
+ * message, returning just the user's own question. The boundary message is
+ * built by {@link sidePrompt} as: boundary prompt + mode line + question.
+ * When the message is not a boundary (no `Mode:` line present) it is treated
+ * as a pure internal envelope and dropped (`null`).
+ */
+function stripSideBoundary(text: string): string | null {
+  if (!text.startsWith(BOUNDARY_PREFIX)) return text
+  const modeIndex = text.indexOf('\nMode:')
+  if (modeIndex < 0) return null
+  const afterMode = text.indexOf('\n', modeIndex + 1)
+  if (afterMode < 0) return null
+  const rest = text.slice(afterMode + 1).trim()
+  return rest === '' ? null : rest
+}
 
 /**
  * Extract the visible text of a content block list: `text` blocks verbatim,
@@ -138,17 +155,19 @@ export function transcriptRows(entries: readonly TranscriptEntry[]): TranscriptR
         const refs = imageRefs(event.data.content)
         const text = rowText(event.data.content, refs)
         const images = refs.length === 0 ? {} : { images: transcriptImages(refs) }
-        if (text.startsWith(BOUNDARY_PREFIX)) break
+        const stripped = stripSideBoundary(text)
+        if (stripped === null) break
+        const displayText = stripped === text ? text : stripped
         const source = event.data.source as unknown
         const sourceKind = typeof source === 'object' && source !== null
           ? (source as Record<string, unknown>)['kind']
           : undefined
         if (sourceKind === undefined || sourceKind === 'user') {
-          rows.push({ kind: 'user', seq: event.seq, text, ...images })
+          rows.push({ kind: 'user', seq: event.seq, text: displayText, ...images })
         } else {
           const provenance = contextProvenance(source)
           rows.push({
-            kind: 'context', seq: event.seq, text,
+            kind: 'context', seq: event.seq, text: displayText,
             source: provenance.label,
             recall: provenance.role === 'recall',
             ...images,

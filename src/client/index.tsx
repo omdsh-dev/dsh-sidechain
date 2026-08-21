@@ -35,19 +35,20 @@ export function apply(ctx: ClientContext): void {
   // Wait for the chat view's declaration instead of registering into an
   // undeclared slot: entry application order is loader-driven, and a direct
   // register racing the declaration fails boot with "slot ... is not declared".
+  const readChildTranscript = (address: SubagentAddress) => fetchTranscript(connection.api.sessions, address)
   ctx.slots.inject(
     'conversation.chat.commandview',
     () => ctx.slots.register({
       name: 'conversation.chat.commandview',
       key: 'side',
-    }, SideCommandCard),
+    }, (props) => <SideCommandCard node={props.node} sessionId={props.sessionId} useSessions={props.useSessions} readChildTranscript={readChildTranscript} />),
   )
   ctx.slots.inject(
     'conversation.chat.commandview',
     () => ctx.slots.register({
       name: 'conversation.chat.commandview',
       key: 'btw',
-    }, SideCommandCard),
+    }, (props) => <SideCommandCard node={props.node} sessionId={props.sessionId} useSessions={props.useSessions} readChildTranscript={readChildTranscript} />),
   )
   const panelInject = (_parentSessionId: SessionId): SidechainPanelInjected => ({
     readTranscript(address: SubagentAddress) {

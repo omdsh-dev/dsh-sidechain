@@ -18,6 +18,7 @@ export type SidechainPanelListener = () => void
 
 let open = false
 let selected: SessionId | undefined
+let selectedMode: 'one-shot' | 'continuable' | undefined
 const listeners = new Set<SidechainPanelListener>()
 
 function emit(): void {
@@ -34,6 +35,11 @@ export function selectedChildId(): SessionId | undefined {
   return selected
 }
 
+/** The mode of the currently selected child, when known from its command. */
+export function selectedChildMode(): 'one-shot' | 'continuable' | undefined {
+  return selectedMode
+}
+
 /** Open the panel (no-op when already open). */
 export function openSidechainPanel(): void {
   if (open) return
@@ -46,6 +52,7 @@ export function closeSidechainPanel(): void {
   if (!open && selected === undefined) return
   open = false
   selected = undefined
+  selectedMode = undefined
   emit()
 }
 
@@ -59,10 +66,14 @@ export function toggleSidechainPanel(): void {
  * Reveal the panel with one child selected for the embedded transcript view.
  * @param childSessionId - the child to show; undefined returns to the list.
  */
-export function revealChild(childSessionId: SessionId | undefined): void {
+export function revealChild(
+  childSessionId: SessionId | undefined,
+  mode?: 'one-shot' | 'continuable',
+): void {
   open = true
-  if (selected === childSessionId) return
+  if (selected === childSessionId && (mode === undefined || selectedMode === mode)) return
   selected = childSessionId
+  if (mode !== undefined) selectedMode = mode
   emit()
 }
 
@@ -87,6 +98,7 @@ export function subscribeSidechainPanel(listener: SidechainPanelListener): () =>
 export function resetSidechainPanel(): void {
   open = false
   selected = undefined
+  selectedMode = undefined
   listeners.clear()
 }
 
