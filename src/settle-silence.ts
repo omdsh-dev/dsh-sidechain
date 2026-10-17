@@ -28,6 +28,8 @@ export interface SettlementSilence {
   reserveChild(parent: Agent): SessionId
   /** Register and immediately protect the parent of one side child. */
   noteChild(parent: Agent, childId: SessionId): void
+  /** Whether a child id belongs to this plugin's persisted side-child registry. */
+  isChild(childId: SessionId): boolean
   /** Restore wrapped agents and remove the future-agent listener. */
   dispose(): void
 }
@@ -113,6 +115,9 @@ export function createSettlementSilence(ctx: Context): SettlementSilence {
       protect(parent)
       children.add(childId)
       saveChildren(children)
+    },
+    isChild(childId): boolean {
+      return children.has(childId)
     },
     dispose(): void {
       removeCreatedListener()

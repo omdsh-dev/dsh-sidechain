@@ -56,8 +56,14 @@ export default [
     deps: {
       // Schemastery stays unbundled because the Loader validates the plugin's
       // `Config` schema and must see its own Schemastery instance; Cordis is
-      // type-only in this bundle.
-      neverBundle: ['@deepseek-ai/schemastery', '@deepseek-ai/cordis'],
+      // type-only in this bundle. The runtime packages resolve from the profile
+      // so the plugin shares the deployment's own instances.
+      neverBundle: [
+        '@deepseek-ai/schemastery',
+        '@deepseek-ai/cordis',
+        '@deepseek-ai/dsh-llm',
+        '@deepseek-ai/dsh-util-values',
+      ],
     },
   },
   {

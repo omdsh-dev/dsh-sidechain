@@ -17,7 +17,6 @@ import type {
   SubagentCatalogEntry,
   SubagentStartRequest,
 } from '@deepseek-ai/dsh-subagent'
-import type { ToolRestriction } from '@deepseek-ai/dsh-tools'
 import { apply } from '../src/index'
 import { createSidechainCommands } from '../src/commands'
 import { SIDE_BOUNDARY_PROMPT, SIDE_MODE_LINE, SIDE_PERSONA } from '../src/prompts'
@@ -56,6 +55,7 @@ interface Harness {
   commands: CommandDefinition[]
   noteChild: ReturnType<typeof vi.fn>
   reserveChild: ReturnType<typeof vi.fn>
+  expectChild: ReturnType<typeof vi.fn>
 }
 
 function makeHarness(deps: SideDeps = DEFAULT_DEPS): Harness {
@@ -66,8 +66,9 @@ function makeHarness(deps: SideDeps = DEFAULT_DEPS): Harness {
   } as unknown as Harness['subagents']
   const noteChild = vi.fn()
   const reserveChild = vi.fn(() => CHILD_ID)
-  const commands = createSidechainCommands(subagents, deps, { noteChild, reserveChild })
-  return { subagents, commands, noteChild, reserveChild }
+  const expectChild = vi.fn()
+  const commands = createSidechainCommands(subagents, deps, { noteChild, reserveChild }, { expect: expectChild })
+  return { subagents, commands, noteChild, reserveChild, expectChild }
 }
 
 function invoke(
@@ -144,7 +145,7 @@ describe('command registration', () => {
 
 describe('/btw (non-blocking one-shot side question)', () => {
   it('starts a one-shot run with boundary + question and returns the child id', async () => {
-    const { subagents, commands, noteChild } = makeHarness()
+    const { subagents, commands, noteChild, expectChild } = makeHarness()
     subagents.startActivation.mockResolvedValue(runOf())
 
     const result = await invoke(commands[1]!, '  what is 6*7?  ')
@@ -156,13 +157,17 @@ describe('/btw (non-blocking one-shot side question)', () => {
       label: 'BTW: what is 6*7?',
       childId: CHILD_ID,
       delivery: 'caller',
-      request: expect.objectContaining({ parent: agent, persona: SIDE_PERSONA }),
+      request: expect.objectContaining({ parent: agent }),
     }))
     const request = subagents.startActivation.mock.calls[0]![0].request as SubagentStartRequest
     const prompt = textOf(request.prompt[0]!)
     expect(prompt).toContain(SIDE_MODE_LINE.btw)
     expect(prompt).toContain(SIDE_BOUNDARY_PROMPT)
     expect(prompt).toContain('what is 6*7?')
+    // The rc.2 start request no longer carries persona/toolFilter: composition
+    // is applied to the child's own scope once its agent exists.
+    expect(request).not.toHaveProperty('persona')
+    expect(expectChild).toHaveBeenCalledWith(CHILD_ID)
     expect(noteChild).toHaveBeenCalledWith(agent, CHILD_ID)
   })
 
@@ -254,7 +259,7 @@ describe('/btw (non-blocking one-shot side question)', () => {
 
 describe('/side (continuable side thread)', () => {
   it('starts a continuable fork child labeled from the question', async () => {
-    const { subagents, commands, noteChild, reserveChild } = makeHarness()
+    const { subagents, commands, noteChild, reserveChild, expectChild } = makeHarness()
     const order: string[] = []
     reserveChild.mockImplementation(() => { order.push('reserve'); return CHILD_ID })
     subagents.startActivation.mockImplementation(async (spec: SubagentActivationSpec) => {
@@ -272,7 +277,8 @@ describe('/side (continuable side thread)', () => {
     expect(spec.provider).toBe('fork')
     expect(spec.label).toBe('investigate the plugin seams')
     expect(spec.request.parent).toBe(agent)
-    expect(spec.request.persona).toBe(SIDE_PERSONA)
+    expect(spec.request).not.toHaveProperty('persona')
+    expect(expectChild).toHaveBeenCalledWith(CHILD_ID)
     const prompt = textOf(spec.request.prompt[0]!)
     expect(prompt).toContain(SIDE_MODE_LINE.side)
     expect(prompt).toContain(SIDE_BOUNDARY_PROMPT)
@@ -341,14 +347,18 @@ describe('plugin wiring', () => {
     expect(registered.map(definition => definition.name)).toEqual(['side', 'btw'])
   })
 
-  it('passes the configured readOnlyTools allow-list as the child tool filter', async () => {
+  it('applies the configured readOnlyTools allow-list to the side child scope', async () => {
     const harness = makeHarness()
     const registered: CommandDefinition[] = []
+    const listeners: Array<(payload: { agent: unknown }) => unknown> = []
     const fakeCtx = {
       subagents: harness.subagents,
       sessionProjections: { register: vi.fn() },
       agents: { list: () => [] },
-      on: vi.fn(() => () => {}),
+      on: vi.fn((_name: string, listener: (payload: { agent: unknown }) => unknown) => {
+        listeners.push(listener)
+        return () => {}
+      }),
       inject: (_deps: string[], callback: (inner: { commands: { register: (d: CommandDefinition) => void } }) => void) => {
         callback({ commands: { register: definition => { registered.push(definition) } } })
       },
@@ -359,11 +369,22 @@ describe('plugin wiring', () => {
       readOnlyTools: ['read', 'grep'],
     })
 
-    const run = runOf()
-    harness.subagents.startActivation.mockResolvedValue(run)
+    harness.subagents.startActivation.mockResolvedValue(runOf())
     await invoke(registered[1]!, 'question')
 
-    const request = harness.subagents.startActivation.mock.calls[0]![0].request as SubagentStartRequest
-    expect(request.toolFilter).toEqual({ allow: ['read', 'grep'] } satisfies ToolRestriction)
+    const restrict = vi.fn()
+    const section = vi.fn()
+    const child = {
+      id: CHILD_ID,
+      session: { id: CHILD_ID },
+      ctx: { systemPrompt: { section }, tools: { restrict } },
+    }
+    for (const listener of listeners) listener({ agent: child })
+
+    expect(restrict).toHaveBeenCalledWith({ allow: ['read', 'grep'] })
+    expect(section).toHaveBeenCalledWith(expect.objectContaining({
+      name: 'deployment:persona-prefix',
+      text: SIDE_PERSONA,
+    }))
   })
 })
