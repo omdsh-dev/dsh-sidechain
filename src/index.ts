@@ -14,6 +14,7 @@
 import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import type { ToolRestriction } from '@deepseek-ai/dsh-tools'
+import { createChildComposition } from './child-composition.ts'
 import { createSidechainCommands } from './commands.ts'
 import { SIDE_PERSONA } from './prompts.ts'
 import { createSettlementSilence } from './settle-silence.ts'
@@ -51,13 +52,33 @@ export function apply(ctx: Context, config: Config): () => void {
     ...(toolFilter === undefined ? {} : { toolFilter }),
   }
   const settlementSilence = createSettlementSilence(ctx)
+  // The rc.2 subagent seam no longer accepts persona/toolFilter on a start
+  // request, so the same composition is applied to the child's own scope at its
+  // creation edge.
+  const childComposition = createChildComposition(
+    ctx,
+    {
+      ...(deps.persona === undefined ? {} : { persona: deps.persona }),
+      ...(toolFilter === undefined ? {} : { toolFilter }),
+    },
+    settlementSilence.isChild,
+  )
   ctx.sessionProjections.register(sidechainModesProjection)
   // Commands are an optional surface: without a command registry the plugin
   // still loads harmlessly in minimal deployments.
   ctx.inject(['commands'], (commandCtx) => {
-    for (const definition of createSidechainCommands(ctx.subagents, deps, settlementSilence, ctx.sessionProjections)) {
+    for (const definition of createSidechainCommands(
+      ctx.subagents,
+      deps,
+      settlementSilence,
+      childComposition,
+      ctx.sessionProjections,
+    )) {
       commandCtx.commands.register(definition)
     }
   })
-  return () => { settlementSilence.dispose() }
+  return () => {
+    childComposition.dispose()
+    settlementSilence.dispose()
+  }
 }

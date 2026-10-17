@@ -7,6 +7,7 @@
 
 import type { CommandDefinition } from '@deepseek-ai/dsh-commands'
 import type { SessionProjectionRegistry } from '@deepseek-ai/dsh-session-projection'
+import type { ChildComposition } from './child-composition.ts'
 import type { SettlementSilence } from './settle-silence.ts'
 import {
   askSideOneShot,
@@ -21,6 +22,7 @@ export function createSidechainCommands(
   subagents: SubagentsLike,
   deps: SideDeps,
   settlementSilence: Pick<SettlementSilence, 'noteChild' | 'reserveChild'>,
+  childComposition: Pick<ChildComposition, 'expect'>,
   projections?: Pick<SessionProjectionRegistry, 'snapshot'>,
 ): CommandDefinition[] {
   /** Loud hint when the configured provider is absent from the deployment. */
@@ -53,6 +55,7 @@ export function createSidechainCommands(
         }
         try {
           const reservedChildId = settlementSilence.reserveChild(agent)
+          childComposition.expect(reservedChildId)
           const { childId } = await startSideConversation(
             subagents, agent, arg, deps, signal, attachments, reservedChildId,
           )
@@ -85,6 +88,7 @@ export function createSidechainCommands(
           // and its answer streams into the sidechain panel — the main
           // session input stays free, nothing is awaited past the start.
           const reservedChildId = settlementSilence.reserveChild(agent)
+          childComposition.expect(reservedChildId)
           const run = await askSideOneShot(subagents, agent, question, deps, signal, attachments, reservedChildId)
           // Stop this child's settlement notice at the parent inbox boundary;
           // the child remains visible in the sidechain panel.

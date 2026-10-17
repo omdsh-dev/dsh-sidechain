@@ -3,3 +3,6 @@ lib/
 dist/
 *.tsbuildinfo
 *.log
+.pnpm-store/
+.pnpm-cache/
+.pnpm-home/

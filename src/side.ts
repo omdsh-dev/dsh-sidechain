@@ -87,8 +87,6 @@ export function askSideOneShot(
     request: {
       prompt: sidePrompt(question, 'btw', attachments),
       parent,
-      ...(deps.persona === undefined ? {} : { persona: deps.persona }),
-      ...(deps.toolFilter === undefined ? {} : { toolFilter: deps.toolFilter }),
     },
     signal,
     delivery: 'caller',
@@ -117,8 +115,6 @@ export function startSideConversation(
     request: {
       prompt: sidePrompt(question, 'side', attachments),
       parent,
-      ...(deps.persona === undefined ? {} : { persona: deps.persona }),
-      ...(deps.toolFilter === undefined ? {} : { toolFilter: deps.toolFilter }),
     },
     signal,
     delivery: 'caller',
