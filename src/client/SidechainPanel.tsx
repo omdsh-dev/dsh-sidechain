@@ -1074,16 +1074,8 @@ export function SidechainPanel({
                 title={t('view.back')}
                 aria-label={t('view.back')}
                 onClick={() => {
-                  // Leave the thread first: returning to the list must never
-                  // depend on the catalog refresh (a rejected projection pull
-                  // would otherwise abort the handler).
                   selectChild(undefined)
-                  try {
-                    actionsRef.current.refresh(sessionId)
-                  } catch {
-                    // The list renders from the store; a failed refresh only
-                    // leaves it as stale as it already was.
-                  }
+                  actionsRef.current.refresh(sessionId)
                 }}
               >
                 <IconChevronLeftOutlineRegular size={14} />
