@@ -1,7 +1,9 @@
 /**
- * Panel stylesheet (browser half): the one CSS resource the sidechain panel
- * needs — the running-row shimmer keyframes. Inline styles cover everything
- * else, but `background-clip: text` sweeps need a real stylesheet, so this
+ * Panel stylesheet (browser half): the CSS resources the sidechain panel needs
+ * beyond inline styles — the running-row shimmer keyframes, plus the desktop
+ * window-chrome carve-outs. Inline styles cover everything else, but
+ * `background-clip: text` sweeps need a real stylesheet, and style rules are
+ * the only way to express the `html[data-windows-titlebar]` condition, so this
  * installs a single idempotent `<style>` tag and hands back its disposer
  * (the plugin fiber removes it on unload — hot-unload discipline).
  */
@@ -33,6 +35,19 @@ export const SIDECHAIN_STYLE_CSS = `
     background: none;
     color: inherit;
   }
+}
+/* The Windows desktop shell draws a titlebar band across the top of the
+   window and marks it -webkit-app-region: drag. Chromium routes pointer
+   events in a drag region to the window frame, so a fixed top:0 panel put its
+   header — the back button included — inside a band where no click ever
+   reached the page. Start the panel below that band, exactly as the host's own
+   top-anchored overlays do, and carve the panel out of any remaining drag
+   area. The height variable is 0 (or absent) outside that shell. */
+.dsh-sidechain-panel {
+  -webkit-app-region: no-drag;
+}
+html[data-windows-titlebar] .dsh-sidechain-panel {
+  --dsh-sidechain-panel-top: var(--dsh-windows-titlebar-height, 0px);
 }
 `
 

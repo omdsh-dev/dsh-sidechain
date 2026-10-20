@@ -7,6 +7,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { CommandNode } from '@deepseek-ai/dsh-client-ui-chat/client'
 import { apply } from '../src/client/index'
 import { observeCreatedChildren, resolveChildSessionId } from '../src/client/SideCommandCard'
+import { SIDECHAIN_STYLE_CSS } from '../src/client/panel-style'
 import { resetSidechainPanel } from '../src/client/panel-state'
 
 const CHILD_ID = '54c34e5e-1c29-4a6c-a2f7-4b19a3d92914'
@@ -195,5 +196,19 @@ describe('client apply wiring', () => {
     expect(accepted).toBe(true)
     injected.refresh!('parent-1')
     expect(refreshProjections).toHaveBeenCalledWith('parent-1')
+  })
+})
+
+describe('panel chrome under the desktop window shell', () => {
+  it('starts the panel below the Windows titlebar drag band', () => {
+    // Chromium routes pointer events inside `-webkit-app-region: drag` to the
+    // window frame, so a top:0 panel had its header (返回列表 included) in a
+    // band where clicks never reached the page.
+    expect(SIDECHAIN_STYLE_CSS).toContain('html[data-windows-titlebar] .dsh-sidechain-panel')
+    expect(SIDECHAIN_STYLE_CSS).toContain('var(--dsh-windows-titlebar-height, 0px)')
+  })
+
+  it('carves the panel out of any remaining window drag region', () => {
+    expect(SIDECHAIN_STYLE_CSS).toContain('-webkit-app-region: no-drag')
   })
 })

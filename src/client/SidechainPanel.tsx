@@ -213,7 +213,7 @@ const styles: Record<string, CSSProperties> = {
     background: C.primary, color: C.onPrimary, fontSize: 11, lineHeight: '16px', textAlign: 'center',
   },
   panel: {
-    position: 'fixed', top: 0, right: 0, bottom: 0, width: 360, maxWidth: '92vw',
+    position: 'fixed', top: 'var(--dsh-sidechain-panel-top, 0px)', right: 0, bottom: 0, width: 360, maxWidth: '92vw',
     display: 'flex', flexDirection: 'column',
     background: 'var(--dsw-alias-bg-layer-1, #ffffff)', borderLeft: `1px solid ${C.border}`,
     boxShadow: '-8px 0 24px rgba(0, 0, 0, 0.12)', zIndex: 200,
@@ -1049,6 +1049,7 @@ export function SidechainPanel({
       {mounted && typeof document !== 'undefined' && createPortal(
         <aside
           ref={panelRef}
+          className="dsh-sidechain-panel"
           style={{ ...styles.panel, width, transform: panelTransform, opacity: panelOpacity }}
           role="complementary"
           aria-label={t('panel.title')}
@@ -1071,7 +1072,19 @@ export function SidechainPanel({
                 type="button"
                 style={styles.back}
                 title={t('view.back')}
-                onClick={() => { actionsRef.current.refresh(sessionId); selectChild(undefined) }}
+                aria-label={t('view.back')}
+                onClick={() => {
+                  // Leave the thread first: returning to the list must never
+                  // depend on the catalog refresh (a rejected projection pull
+                  // would otherwise abort the handler).
+                  selectChild(undefined)
+                  try {
+                    actionsRef.current.refresh(sessionId)
+                  } catch {
+                    // The list renders from the store; a failed refresh only
+                    // leaves it as stale as it already was.
+                  }
+                }}
               >
                 <IconChevronLeftOutlineRegular size={14} />
                 {t('view.back')}
