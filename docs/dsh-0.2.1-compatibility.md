@@ -1,6 +1,28 @@
 # DSH 0.2.1 适配记录与后续方案
 
-## RC.2 当前适配
+## RC.4 当前适配
+
+Sidechain 版本、包与插件清单的 `engines.dsh`、全部 DSH 依赖和锁文件同步到 `0.2.1-rc.4`，重新生成发布用 `lib/`。RC.4 的类型检查与真实运行未要求修改插件业务逻辑。旧 `0.2.1-rc.2` 插件会被 RC.4 的精确版本检查跳过，不能只升级宿主而保留旧插件。
+
+### 实测环境与结果
+
+2026-10-28 使用本机已安装的官方 `dsh 0.2.1-rc.4` 启动 Web profile；实际加载的 Session、Subagent 和 LLM 包均为 RC.4。旁边的 DSH 源码目录仍为 RC.3，本轮没有用它启动宿主，也没有修改 DSH。通过官方 `dsh plugin --profile web add <本地仓库>` 安装到独立 DSH home，无版本豁免。
+
+可见 Chromium 149、Standard mode、官方真实 `deepseek-official / deepseek-flash` 完成以下路径，模型请求未替换或拦截：
+
+- 父会话记录随机代号，`/btw` 从继承上下文正确回答，侧栏不提供续聊输入框。
+- `/side` 通过真实 `read` 工具读取另一随机文件值，展示工具参数和结果；续聊正确回忆父代号与文件内容。
+- 生成期间捕获尚未完成的真实文本，主输入框仍可用；完成后运行提示消失。`/side list` 正确显示两种命令身份，原生子代理入口可打开已完成的 `/btw`。
+- 浏览器刷新与宿主冷重启后仍可读取历史；恢复的 `/btw` 保持只读，`/side` 继续回答。重启前后的父日志不含子文件内容、续聊答案或子代理通知，侧栏也未显示父方旧回答。
+- 重启时启用 `readOnlyTools: [read, grep, glob]`，恢复与新建子会话的继承工具均被过滤，新子会话仍能读取文件；父会话保留 `write`、`bash`。真实模型未尝试未暴露的写入工具，未创建目标文件，因此本轮不宣称实测过执行守卫拒绝分支；该分支由现有单元测试覆盖。
+
+默认配置下，`/btw` 与 `/side` 的首次模型响应分别记录 8,704 和 8,832 个 `cacheReadTokens`。启用工具白名单后的请求集合不同，不沿用这组缓存结论。
+
+`pnpm check` 通过两个类型检查、127 项测试和 Host/Client 构建。上述浏览器路径未捕获插件异常；另记录到宿主 `/open-in-app/icon/filemanager` 的 HTTP 404，与 RC.2 实测相同。截图、一次性实验脚本和真实会话证据位于忽略入库的 `dist/rc4-real-model/`，包括 `side-tool-real.png`、`stream-real.png`、`cold-btw-real.png`、`final-real-browser.png`、`readonly-real.png` 和 `results.json`。
+
+本轮未覆盖 macOS/Windows Electron、旧版会话迁移、附件交互、PTC 模式及 #11 的长历史场景。#5 的完成回合限制仍存在；本轮不改变既有 issue 状态。市场索引必须在源码提交后按发布流程重新生成，不能把旧 RC.2 提交声明为 RC.4。
+
+## RC.2 历史适配
 
 Sidechain 版本、`package.json` 的 `engines.dsh`、插件清单和全部 DSH 依赖同步到官方 `0.2.1-rc.2`；Cordis 为 `4.0.5`，Schemastery 为 `3.18.5`。浏览器验收使用本地 DSH 源码 `687f282e8625c6b8d11ff58211a90524be2e4317`，通过官方源码 CLI 的 Web profile 启动。未修改 DSH 源码。
 
