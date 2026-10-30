@@ -13,7 +13,7 @@ import type { UserConfig } from 'tsdown'
 
 const packageManifest = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8'))
 const pluginManifest = JSON.parse(readFileSync(new URL('./dsh.plugin.json', import.meta.url), 'utf8'))
-assert.equal(packageManifest.version, packageManifest.engines.dsh, 'Sidechain version must match its supported DSH version')
+assert.equal(packageManifest.version, packageManifest.devDependencies['@deepseek-ai/dsh-agent'], 'Sidechain version must match its target DSH version')
 assert.equal(pluginManifest.engines.dsh, packageManifest.engines.dsh, 'Plugin and package DSH requirements must match')
 assert.equal(pluginManifest.version, packageManifest.version, 'Plugin and package versions must match')
 
