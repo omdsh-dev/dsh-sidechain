@@ -6,6 +6,10 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 
 export const NS = 'sidechain'
 export const zh = {
+  'command.side.label': '侧会话',
+  'command.side.description': '开启独立侧会话，可持续追问',
+  'command.btw.label': '随问',
+  'command.btw.description': '在后台问一个问题，不打断当前对话',
   'view.instructions': '侧链运行说明（展开原文）',
   'view.open': '在侧栏中打开',
   'view.stop': '停止生成',
@@ -16,6 +20,10 @@ export const zh = {
 } as const
 
 export const en: Record<SidechainKey, string> = {
+  'command.side.label': 'Side conversation',
+  'command.side.description': 'Start a separate conversation with follow-ups',
+  'command.btw.label': 'Quick question',
+  'command.btw.description': 'Ask a question in the background without interrupting this conversation',
   'view.instructions': 'Sidechain instructions (show original)',
   'view.open': 'Open in sidebar',
   'view.stop': 'Stop generating',

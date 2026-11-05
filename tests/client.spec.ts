@@ -5,8 +5,12 @@
 
 import { describe, expect, it, vi } from 'vitest'
 import type { CommandNode } from '@deepseek-ai/dsh-client-ui-chat/client'
+import type { MenuState } from '@deepseek-ai/dsh-client-ui-input-trigger/client'
+import { SlotCore, type PropsRenderSlots } from '@deepseek-ai/dsh-client-ui-slots'
 import { apply } from '../src/client/index'
 import { observeCreatedChildren, resolveChildSessionId } from '../src/client/SideCommandCard'
+import { installCommandMenu, localizeCommandMenu } from '../src/client/command-menu'
+import { en, zh } from '../src/client/locales'
 
 const CHILD_ID = '54c34e5e-1c29-4a6c-a2f7-4b19a3d92914'
 
@@ -107,7 +111,7 @@ describe('native sidebar integration', () => {
     let mounted = 'parent'
     const openResource = vi.fn()
     const ctx = {
-      effect: (callback: () => void) => callback(), locale: { register: vi.fn() },
+      effect: (callback: () => void) => callback(), locale: { register: vi.fn(), bind: vi.fn() },
       uiConversation: { userText: { register: vi.fn() } },
       sidebarRight: { mounted: { getSnapshot: () => mounted }, openResource },
       sessions: {
@@ -115,6 +119,7 @@ describe('native sidebar integration', () => {
         refreshProjections: vi.fn(),
       },
       slots: {
+        entries: () => [], subscribe: () => () => {},
         inject: (_name: string, register: () => unknown) => register(),
         register: (options: Registration) => { registered.add(options); return () => { registered.delete(options) } },
       },
@@ -123,7 +128,7 @@ describe('native sidebar integration', () => {
     const observer = [...registered].find(entry => entry.id === 'sidechain-native-observer')!
     const actions = observer.inject!('parent')
     actions.openChild!(CHILD_ID)
-    expect(openResource).toHaveBeenCalledWith(expect.stringContaining(CHILD_ID), { kind: 'subagentchat', preferNewPane: true })
+    expect(openResource).toHaveBeenCalledWith(expect.stringContaining(CHILD_ID), { kind: 'subagentchat' })
     mounted = 'different-parent'
     actions.openChild!(CHILD_ID)
     expect(openResource).toHaveBeenCalledTimes(1)
@@ -143,5 +148,72 @@ describe('native sidebar integration', () => {
     refresh()
     expect(select()).toBeNull()
     expect([...registered].filter(entry => entry.name === 'conversation.composer')).toHaveLength(1)
+  })
+})
+
+describe('command menu presentation', () => {
+  it('localizes only Sidechain command rows without changing routing or the original snapshot', () => {
+    const state: MenuState = {
+      open: true, hit: null, generation: 7, highlight: { source: 'command', index: 1 },
+      groups: [
+        { source: 'command', status: 'ready', items: [
+          { name: 'compact', label: '压缩', section: '指令' },
+          { name: 'side', description: 'host side description', hint: '<question>', section: '指令' },
+          { name: 'btw', description: 'host btw description', hint: '<question>', section: '指令' },
+        ] },
+        { source: 'skill', status: 'ready', items: [{ name: 'side', label: 'Unrelated skill' }] },
+      ],
+    }
+    const before = structuredClone(state)
+    for (const dictionary of [zh, en]) {
+      const localized = localizeCommandMenu(state, key => dictionary[key])
+      expect(localized.highlight).toBe(state.highlight)
+      expect(localized.generation).toBe(state.generation)
+      expect(localized.groups[1]).toBe(state.groups[1])
+      expect(localized.groups[0]!.items[0]).toBe(state.groups[0]!.items[0])
+      expect(localized.groups[0]!.items.map(item => item.name)).toEqual(['compact', 'side', 'btw'])
+      for (const [index, name] of [[1, 'side'], [2, 'btw']] as const) {
+        expect(localized.groups[0]!.items[index]).toEqual({
+          ...state.groups[0]!.items[index],
+          label: dictionary[`command.${name}.label`],
+          description: dictionary[`command.${name}.description`],
+          icon: expect.any(Function),
+        })
+      }
+    }
+    expect(state).toEqual(before)
+    const closed = { ...state, open: false }
+    expect(localizeCommandMenu(closed, key => zh[key])).toBe(closed)
+  })
+
+  it('follows native menu registration and restores it after plugin unload', async () => {
+    const slots = new SlotCore()
+    slots.register({ name: 'root', children: {
+      'conversation.input.overlay': { kind: 'list', scope: 'session' },
+    } }, ({ renderSlot }: PropsRenderSlots<'conversation.input.overlay'>) => renderSlot('conversation.input.overlay', {}))
+    const ctx = {
+      locale: { bind: () => (key: keyof typeof zh) => zh[key] },
+      slots: {
+        entries: slots.entries.bind(slots), subscribe: slots.subscribe.bind(slots), register: slots.register.bind(slots),
+        inject: (_name: string, callback: () => () => void) => callback(),
+      },
+    }
+    const dispose = installCommandMenu(ctx as never)
+    expect(slots.entriesOfSlot('conversation.input.overlay')).toHaveLength(0)
+    const native = () => null
+    const removeNative = slots.register({ name: 'conversation.input.overlay', id: 'slash-menu', locale: 'slash.menu', inject: () => ({}) }, native)
+    await Promise.resolve()
+    expect(slots.entriesOfSlot('conversation.input.overlay')[0]!.component).not.toBe(native)
+    expect(slots.entries('conversation.input.overlay')).toHaveLength(2)
+    removeNative()
+    await Promise.resolve()
+    expect(slots.entriesOfSlot('conversation.input.overlay')).toHaveLength(0)
+    slots.register({ name: 'conversation.input.overlay', id: 'slash-menu', locale: 'slash.menu', inject: () => ({}) }, native)
+    await Promise.resolve()
+    expect(slots.entriesOfSlot('conversation.input.overlay')[0]!.component).not.toBe(native)
+    dispose()
+    await Promise.resolve()
+    expect(slots.entriesOfSlot('conversation.input.overlay')[0]!.component).toBe(native)
+    expect(slots.entries('conversation.input.overlay')).toHaveLength(1)
   })
 })

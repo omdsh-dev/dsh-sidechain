@@ -10,12 +10,14 @@ import { SideCommandCard } from './SideCommandCard.tsx'
 import { NativeChildObserver, SidechainReadOnly, nativeChildAddress, sidechainComposerReason, type ReadOnlyActions, type ReadOnlyMatch } from './native-sidebar.tsx'
 import { NS, en, zh } from './locales.ts'
 import { boundaryTextRule, SidechainBoundary } from './boundary-text.tsx'
+import { installCommandMenu } from './command-menu.tsx'
 
 export const name = 'dsh-sidechain'
 export const inject = ['slots', 'sessions', 'locale', 'sidebarRight', 'uiConversation']
 
 export function apply(ctx: Context): void {
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'dsh-sidechain: dictionaries')
+  installCommandMenu(ctx)
   ctx.uiConversation.userText.register(boundaryTextRule)
   ctx.slots.inject('conversation.user.text.node', () => ctx.slots.register({
     name: 'conversation.user.text.node', key: 'sidechain-boundary', locale: NS,
@@ -23,7 +25,7 @@ export function apply(ctx: Context): void {
   const childActions = (parentId: SessionId) => ({
     openChild(childId: SessionId) {
       if (ctx.sidebarRight.mounted.getSnapshot() !== parentId) return
-      ctx.sidebarRight.openResource(nativeChildAddress(parentId, childId), { kind: 'subagentchat', preferNewPane: true })
+      ctx.sidebarRight.openResource(nativeChildAddress(parentId, childId), { kind: 'subagentchat' })
     },
   })
   for (const key of ['side', 'btw'] as const) {

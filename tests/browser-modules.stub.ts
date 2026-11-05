@@ -2,3 +2,5 @@
 
 export const MarkdownText = () => null
 export const Button = () => null
+export const IconBranchOutlineRegular = () => null
+export const IconQuestionOutlineRegular = () => null
