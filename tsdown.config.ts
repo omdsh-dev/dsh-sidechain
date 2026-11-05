@@ -71,7 +71,6 @@ export default [
     clean: false,
     deps: {
       neverBundle: [...CLIENT_EXTERNALS],
-      alwaysBundle: ['@deepseek-ai/dsh-llm/assistant-stream'],
     },
     define: {
       'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV ?? 'production'),

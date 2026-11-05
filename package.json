@@ -56,6 +56,8 @@
         "@deepseek-ai/dsh-client-ui-primitives",
         "@deepseek-ai/dsh-client-ui-renderer",
         "@deepseek-ai/dsh-client-ui-session",
+        "@deepseek-ai/dsh-client-ui-sidebar-right",
+        "@deepseek-ai/dsh-client-ui-subagent",
         "@deepseek-ai/dsh-client-ui-slots",
         "@deepseek-ai/dsh-client-ui-workspace"
       ],
@@ -92,6 +94,7 @@
     "@deepseek-ai/dsh-client-ui-primitives": "0.2.2-rc.1",
     "@deepseek-ai/dsh-client-ui-renderer": "0.2.2-rc.1",
     "@deepseek-ai/dsh-client-ui-session": "0.2.2-rc.1",
+    "@deepseek-ai/dsh-client-ui-sidebar-right": "0.2.2-rc.1",
     "@deepseek-ai/dsh-client-ui-slots": "0.2.2-rc.1",
     "@deepseek-ai/dsh-client-ui-workspace": "0.2.2-rc.1",
     "@deepseek-ai/dsh-commands": "0.2.2-rc.1",

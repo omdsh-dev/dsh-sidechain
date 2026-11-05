@@ -3,12 +3,10 @@
  * the slot registration wiring (auto-open of created side conversations).
  */
 
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import type { CommandNode } from '@deepseek-ai/dsh-client-ui-chat/client'
 import { apply } from '../src/client/index'
 import { observeCreatedChildren, resolveChildSessionId } from '../src/client/SideCommandCard'
-import { SIDECHAIN_STYLE_CSS } from '../src/client/panel-style'
-import { resetSidechainPanel } from '../src/client/panel-state'
 
 const CHILD_ID = '54c34e5e-1c29-4a6c-a2f7-4b19a3d92914'
 
@@ -100,115 +98,50 @@ describe('observeCreatedChildren', () => {
   })
 })
 
-describe('client apply wiring', () => {
-  interface RegisteredSlot {
-    options: {
-      name: string
-      key?: string
-      id?: string
-      order?: number
-      locale?: string
-      inject?: (parentSessionId: string) => {
-        revealPanel?: (childSessionId: string) => void
-        readTranscript?: (address: unknown) => Promise<unknown>
-        readActivity?: (address: unknown) => Promise<unknown>
-        sendPrompt?: (address: unknown, text: string) => Promise<boolean>
-        refresh?: (parentSessionId: string) => void
-        openPath?: (path: string) => void
-      }
-    }
-  }
-
-  beforeEach(() => {
-    resetSidechainPanel()
-  })
-
-  function fakeCtx() {
-    const registered: RegisteredSlot[] = []
-    const refreshProjections = vi.fn(() => Promise.resolve())
-    const registerLocale = vi.fn()
-    const follow = vi.fn(async function* () {
-      yield { type: 'snapshot' as const, cursor: 0, records: [], hasMore: false, header: {}, projections: {} }
-    })
-    const page = vi.fn(() => Promise.resolve({ ok: true as const, value: { records: [], hasMore: false } }))
-    const prompt = vi.fn(() => Promise.resolve({ ok: true as const, value: { messageId: 'm' } }))
-    const remote = {
-      session: { follow, page, attachment: vi.fn(), openWorkspacePath: vi.fn() },
-      subagents: { prompt },
-    }
+describe('native sidebar integration', () => {
+  it('opens only the visible parent and refreshes BTW takeover from the authoritative projection', () => {
+    type Registration = { name: string; key?: string; id?: string; inject?: (id: string) => { openChild?: (id: string) => void }; select?: (owner: unknown) => unknown }
+    const registered = new Set<Registration>()
+    let refresh = () => {}
+    let projections: Record<string, { values: { sidechainModes: Record<string, 'btw' | 'side'> } }> = {}
+    let mounted = 'parent'
+    const openResource = vi.fn()
     const ctx = {
-      sessions: { refreshProjections },
-      locale: { register: registerLocale },
-      effect: (fn: () => void) => { fn() },
-      remote,
+      effect: (callback: () => void) => callback(), locale: { register: vi.fn() },
+      uiConversation: { userText: { register: vi.fn() } },
+      sidebarRight: { mounted: { getSnapshot: () => mounted }, openResource },
+      sessions: {
+        list: { getSnapshot: () => ({ projectionsBySession: projections }), subscribe: (callback: () => void) => { refresh = callback; return () => {} } },
+        refreshProjections: vi.fn(),
+      },
       slots: {
-        register: (options: RegisteredSlot['options'], _component: unknown) => {
-          registered.push({ options })
-          return () => {}
-        },
-        // The real runtime waits for the slot declaration before running the
-        // register callback; the declaration exists in this test context.
-        inject: (_name: string, register: () => () => void) => {
-          register()
-        },
+        inject: (_name: string, register: () => unknown) => register(),
+        register: (options: Registration) => { registered.add(options); return () => { registered.delete(options) } },
       },
     }
-    return { ctx, registered, follow, page, prompt, refreshProjections }
-  }
-
-  it('registers keyed cards, an always-mounted panel host, and the header toggle', () => {
-    const { ctx, registered } = fakeCtx()
     apply(ctx as never)
-    expect(registered.map(entry => [entry.options.name, entry.options.key ?? entry.options.id]))
-      .toEqual([
-        ['conversation.chat.commandview', 'side'],
-        ['conversation.chat.commandview', 'btw'],
-        ['conversation.input.dock', 'sidechain-panel-host'],
-        ['conversation.session.header.actions', 'sidechain-panel-toggle'],
-      ])
-  })
-
-  it('panel inject wires the transcript RPC and catalog methods', async () => {
-    const { ctx, registered, follow, prompt, refreshProjections } = fakeCtx()
-    apply(ctx as never)
-    const entry = registered.find(item => item.options.id === 'sidechain-panel-host')!
-    const injected = entry.options.inject!('parent-1')
-    const address = { parentSessionId: 'parent-1', childSessionId: CHILD_ID, mode: 'continuable' }
-    const transcript = await injected.readTranscript!(address)
-    expect(follow).toHaveBeenCalledWith({
-      address: { kind: 'subagent', parentSessionId: 'parent-1', childSessionId: CHILD_ID, mode: 'continuable' },
-      maxMessages: 8,
-      assistantStream: true,
+    const observer = [...registered].find(entry => entry.id === 'sidechain-native-observer')!
+    const actions = observer.inject!('parent')
+    actions.openChild!(CHILD_ID)
+    expect(openResource).toHaveBeenCalledWith(expect.stringContaining(CHILD_ID), { kind: 'subagentchat', preferNewPane: true })
+    mounted = 'different-parent'
+    actions.openChild!(CHILD_ID)
+    expect(openResource).toHaveBeenCalledTimes(1)
+    const select = (pendingInteraction?: object) => [...registered].find(entry => entry.name === 'conversation.composer')!.select!({
+      session: { subagent: { address: { parentSessionId: 'parent', childSessionId: CHILD_ID, mode: 'continuable' } } }, pendingInteraction,
     })
-    expect(transcript).toEqual({ rows: [], produced: [] })
-    // The activity line reads a lighter tail page; an empty log yields null.
-    const activityLine = await injected.readActivity!(address)
-    expect(follow).toHaveBeenCalledWith({
-      address: { kind: 'subagent', parentSessionId: 'parent-1', childSessionId: CHILD_ID, mode: 'continuable' },
-      maxMessages: 6,
-      assistantStream: true,
-    })
-    expect(activityLine).toBeNull()
-    const accepted = await injected.sendPrompt!(address, '继续')
-    expect(prompt).toHaveBeenCalledWith(expect.objectContaining({
-      ...address, content: [{ type: 'text', text: '继续' }], requestId: expect.any(String),
-    }))
-    expect(accepted).toBe(true)
-    injected.refresh!('parent-1')
-    expect(refreshProjections).toHaveBeenCalledWith('parent-1')
-  })
-})
-
-describe('panel chrome under the desktop window shell', () => {
-  it('starts the panel below the Windows titlebar drag band', () => {
-    // Chromium routes pointer events inside `-webkit-app-region: drag` to the
-    // window frame, so a top:0 panel had its header (返回列表 included) in a
-    // band where clicks never reached the page.
-    expect(SIDECHAIN_STYLE_CSS).toContain('html[data-windows-titlebar] .dsh-sidechain-panel')
-    expect(SIDECHAIN_STYLE_CSS).toContain('var(--dsh-windows-titlebar-height, 0px)')
-  })
-
-  it('carves the panel out of any remaining window drag region', () => {
-    expect(SIDECHAIN_STYLE_CSS).toContain('-webkit-app-region: no-drag')
+    expect(select()).toEqual({ parentId: 'parent', reason: 'loading' })
+    const loadingRegistration = [...registered].find(entry => entry.name === 'conversation.composer')
+    projections = {}
+    refresh()
+    expect([...registered].find(entry => entry.name === 'conversation.composer')).toBe(loadingRegistration)
+    projections = { parent: { values: { sidechainModes: { [CHILD_ID]: 'btw' } } } }
+    refresh()
+    expect(select()).toEqual({ parentId: 'parent', reason: 'btw' })
+    expect(select({ key: 'approval' })).toBeNull()
+    projections = { parent: { values: { sidechainModes: { [CHILD_ID]: 'side' } } } }
+    refresh()
+    expect(select()).toBeNull()
+    expect([...registered].filter(entry => entry.name === 'conversation.composer')).toHaveLength(1)
   })
 })

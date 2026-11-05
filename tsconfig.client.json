@@ -3,6 +3,6 @@
   "compilerOptions": {
     "lib": ["es2022", "dom"]
   },
-  "include": ["src/client", "tests/client.spec.ts", "tests/panel-rows.spec.ts"],
+  "include": ["src/client", "tests/client.spec.ts", "tests/native-sidebar.spec.ts"],
   "exclude": []
 }

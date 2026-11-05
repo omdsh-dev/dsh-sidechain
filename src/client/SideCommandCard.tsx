@@ -1,18 +1,21 @@
 /**
  * Command cards for `/side` and `/btw` (browser half). Live child discovery
- * is owned by the always-mounted panel host, not
+ * is owned by the always-mounted composer observer, not
  * the card: blank sessions deliberately do not render chat rows, and fast
  * commands may settle before a row mounts.
  *
  */
 
 import type { CommandNode } from '@deepseek-ai/dsh-client-ui-chat/client'
-import { MarkdownText } from '@deepseek-ai/dsh-client-ui-primitives'
+import { Button, MarkdownText } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import { sideCommandResult } from '../command-result.ts'
+import type { PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
+import type { NativeChildActions } from './native-sidebar.tsx'
+import { NS } from './locales.ts'
 
 /** Props supplied by the keyed command row. */
-export interface SideCommandCardProps {
+export interface SideCommandCardProps extends NativeChildActions, PropsLocale<typeof NS> {
   node: CommandNode
 }
 
@@ -70,9 +73,10 @@ export function observeCreatedChildren(
   return { known, children }
 }
 
-/** The command card is presentation only; the panel host owns live discovery. */
-export function SideCommandCard({ node }: SideCommandCardProps): JSX.Element {
+/** The command card can reopen history; the composer observer owns live discovery. */
+export function SideCommandCard({ node, openChild, t }: SideCommandCardProps): JSX.Element {
   const kind: SideCommandKind = node.name === 'btw' ? 'btw' : 'side'
+  const childId = resolveChildSessionId(node, kind)
   const outcome = node.outcome
   const label = outcome === null
     ? '…'
@@ -94,6 +98,7 @@ export function SideCommandCard({ node }: SideCommandCardProps): JSX.Element {
       <div style={{ overflowX: 'auto' }}>
         <MarkdownText text={label} streaming={false} labels={MARKDOWN_LABELS} />
       </div>
+      {childId !== undefined && <Button size="sm" onClick={() => openChild(childId)}>{t('view.open')}</Button>}
     </div>
   )
 }
