@@ -2,7 +2,7 @@
 
 DSH 侧会话插件。它通过 fork 当前会话创建隔离子会话，让用户在不中断主线程的情况下发起一次性问题或持续对话。
 
-当前 Sidechain 版本为 `0.2.1-rc.5`，支持 DSH `0.2.1-rc.2` 至 `0.2.1-rc.5`。Sidechain 的版本号始终与最新适配的目标 DSH 完全一致，包括预发布后缀；同一个插件包可以支持多个已验证的宿主版本，兼容范围由 `engines.dsh` 声明。
+当前 Sidechain 版本为 `0.2.2-rc.1`，支持 DSH `0.2.2-rc.1`，并保留 `0.2.1-rc.2` 至 `0.2.1-rc.5` 的兼容性。Sidechain 的版本号始终与最新适配的目标 DSH 完全一致，包括预发布后缀；同一个插件包可以支持多个已验证的宿主版本，兼容范围由 `engines.dsh` 声明。
 
 | 命令 | 用途 |
 |---|---|
@@ -39,7 +39,7 @@ https://omdsh-dev.github.io/dsh-sidechain/index.json
 
 ### 从命令行安装
 
-使用包含 RC.5 适配的插件版本，并用 **0.2.1-rc.2 至 0.2.1-rc.5** 的 CLI 安装或更新：
+使用包含 `0.2.2-rc.1` 适配的插件版本，并用 **0.2.2-rc.1** 或 **0.2.1-rc.2 至 0.2.1-rc.5** 的 CLI 安装或更新：
 
 ```sh
 dsh plugin --profile web add github:omdsh-dev/dsh-sidechain
@@ -149,7 +149,7 @@ fork 只继承父会话已经完成的回合。继承内容仅作为参考，bou
 ## 限制
 
 - fork 不包含父会话正在进行的回合。
-- DSH `0.2.1-rc.2` 至 `0.2.1-rc.5` 将新建本地子会话统一存为 `continuable`。本插件从父会话已有命令结果投影出 `/btw` 身份，重启后仍保持侧栏只读；这不是宿主层的不可续聊权限，DSH 原生子代理入口或其他调用方仍可能续聊。需要正常追问时使用 `/side`。
+- 当前支持的 DSH 版本将新建本地子会话统一存为 `continuable`。本插件从父会话已有命令结果投影出 `/btw` 身份，重启后仍保持侧栏只读；这不是宿主层的不可续聊权限，DSH 原生子代理入口或其他调用方仍可能续聊。需要正常追问时使用 `/side`。
 - `/side list` 和侧栏列出当前会话的全部直接子代理，不限于本插件创建的线程。
 - `/side` 必须带首个问题；当前 subagent API 不支持创建后等待首次输入的空线程。
 - 多版本兼容指同一个插件包可运行于各个受支持宿主，不代表可以用旧版 DSH 打开新版宿主写入的会话数据。共享 DSH home 的宿主降级未验证；兼容范围外的后续版本需另行验证。
@@ -161,9 +161,9 @@ pnpm install
 pnpm check
 ```
 
-`pnpm check` 依次执行类型检查、测试和构建。开发依赖固定到 DSH `0.2.1-rc.5`，可直接从 npm registry 安装；DSH peer dependencies 与宿主兼容范围保持一致。
+`pnpm check` 依次执行类型检查、测试和构建。开发依赖固定到 DSH `0.2.2-rc.1`，可直接从 npm registry 安装；DSH peer dependencies 与宿主兼容范围保持一致。
 
-插件版本跟随最新适配的目标 DSH，不独立递增。宿主兼容范围以 `package.json` 的 `engines.dsh` 为准，当前为 `>=0.2.1-rc.2 <=0.2.1-rc.5`；验证新增版本后再调整范围。构建时校验包版本与目标 DSH 开发依赖一致，并校验插件清单的版本、兼容范围分别与包清单一致。市场索引从已提交的包清单派生版本和兼容范围。
+插件版本跟随最新适配的目标 DSH，不独立递增。宿主兼容范围以 `package.json` 的 `engines.dsh` 为准，当前为 `>=0.2.1-rc.2 <=0.2.1-rc.5 || 0.2.2-rc.1`；不自动包含两段之间的版本或后续版本。构建时校验包版本与目标 DSH 开发依赖一致，并校验插件清单的版本、兼容范围分别与包清单一致。市场索引从已提交的包清单派生版本和兼容范围。
 
 ### 发布插件市场
 
@@ -175,4 +175,4 @@ GitHub Pages 从 `master` 的 `docs/` 发布索引。完成适配后运行 `pnpm
 
 浏览器适配使用 `ctx.remote`、Session Controller 的 `projectionsBySession` 和 `assistantStream` 开场快照。`sidechainModes` 投影只从已有 `command/done` 记录推导命令身份，不根据可变标题猜测类型，也不另存一份身份记录。首次启动使用 `delivery: 'caller'`，持久化的父收件箱过滤继续保护冷启动后的续聊。
 
-本次验证记录与四个 issue 的处理结论见 [DSH 0.2.1 适配记录](docs/dsh-0.2.1-compatibility.md)。
+本次验证见 [DSH 0.2.2 适配记录](docs/dsh-0.2.2-compatibility.md)；旧版验证与四个 issue 的历史处理结论见 [DSH 0.2.1 适配记录](docs/dsh-0.2.1-compatibility.md)。

@@ -6,9 +6,6 @@ import type { SideMode } from './prompts.ts'
 export type SidechainModes = Readonly<Record<string, SideMode>>
 
 declare module '@deepseek-ai/dsh-session-projection/types' {
-  interface SessionProjectionStateMap {
-    sidechainModes: SidechainModes
-  }
   interface SessionProjectionMap {
     sidechainModes: SidechainModes
   }
@@ -28,4 +25,4 @@ export const sidechainModesProjection = {
   },
   wire: { viewSchema: schema, view: state => state },
   stateVersion: 2,
-} satisfies ProjectionDefinition<'sidechainModes'>
+} satisfies ProjectionDefinition<'sidechainModes', SidechainModes>

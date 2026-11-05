@@ -344,11 +344,13 @@ describe('text helpers', () => {
 })
 
 describe('plugin wiring', () => {
-  it('registers both commands when a command registry is composed', () => {
+  it('waits for command identity projection readiness before exposing commands', async () => {
+    let resolveReady!: () => void
+    const ready = new Promise<void>(resolve => { resolveReady = resolve })
     const registered: CommandDefinition[] = []
     const fakeCtx = {
       subagents: makeHarness().subagents,
-      sessionProjections: { register: vi.fn() },
+      sessionProjections: { register: () => ready },
       agents: { list: () => [] },
       on: vi.fn(() => () => {}),
       effect: (execute: () => () => void) => execute(),
@@ -356,7 +358,10 @@ describe('plugin wiring', () => {
         callback({ commands: { register: definition => { registered.push(definition) } } })
       },
     }
-    apply(fakeCtx as never, { providerName: 'fork', persona: SIDE_PERSONA })
+    const loading = apply(fakeCtx as never, { providerName: 'fork', persona: SIDE_PERSONA })
+    expect(registered).toEqual([])
+    resolveReady()
+    await loading
 
     expect(registered.map(definition => definition.name)).toEqual(['side', 'btw'])
   })
@@ -374,7 +379,7 @@ describe('plugin wiring', () => {
         callback({ commands: { register: definition => { registered.push(definition) } } })
       },
     }
-    apply(fakeCtx as never, {
+    await apply(fakeCtx as never, {
       providerName: 'fork',
       persona: '',
     })

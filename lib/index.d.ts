@@ -13,6 +13,6 @@ interface Config {
   readOnlyTools?: string[];
 }
 declare const Config: z<Config>;
-declare function apply(ctx: Context, config: Config): () => void;
+declare function apply(ctx: Context, config: Config): Promise<() => void>;
 //#endregion
 export { Config, apply, inject, name };

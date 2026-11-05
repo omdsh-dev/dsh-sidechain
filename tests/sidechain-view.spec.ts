@@ -382,6 +382,22 @@ describe('fetchTranscript', () => {
     })
   })
 
+  it('hydrates child images using the full attachment reference and legacy identity', async () => {
+    const attachment = { attachmentId: 'image-1', mediaType: 'image/png', bytes: 4, width: 1, height: 1 }
+    const sessions = {
+      ...remote([snapshot([
+        record(event('assistant/message', 1, { message: { content: [{ type: 'image', attachment }] } })),
+      ], false)], []),
+      attachment: vi.fn(async (request) => ({
+        ok: request.attachment?.bytes === attachment.bytes && request.attachmentId === attachment.attachmentId,
+        value: { attachment, data: 'aW1n' },
+      })),
+    }
+    const result = await fetchTranscript(sessions as never, ADDRESS)
+    expect(sessions.attachment).toHaveBeenCalledWith({ sessionId: CHILD, attachment, attachmentId: attachment.attachmentId })
+    expect(result?.rows[0]).toMatchObject({ images: [{ attachment, url: 'data:image/png;base64,aW1n' }] })
+  })
+
   it('returns null on business failure', async () => {
     const follow = vi.fn(async function* () { yield { type: 'error' as const } as never })
     expect(await fetchTranscript({ follow } as never, ADDRESS)).toBeNull()

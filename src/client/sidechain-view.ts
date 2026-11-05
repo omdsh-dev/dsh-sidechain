@@ -465,10 +465,12 @@ async function hydrateTranscriptImages(
   await Promise.all([...refs].map(async ([id, ref]) => {
     if (imageUrlCache.has(id)) return
     try {
-      const response = await sessions.attachment({
+      const request = {
         sessionId: childSessionId,
+        attachment: ref,
         attachmentId: ref.attachmentId,
-      })
+      }
+      const response = await sessions.attachment(request)
       if (!response.ok) {
         imageUrlCache.set(id, null)
         return

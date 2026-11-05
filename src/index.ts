@@ -41,7 +41,8 @@ export const Config: z<Config> = z.object({
   readOnlyTools: z.array(z.string()),
 })
 
-export function apply(ctx: Context, config: Config): () => void {
+export async function apply(ctx: Context, config: Config): Promise<() => void> {
+  await ctx.sessionProjections.register(sidechainModesProjection)
   const readOnlyTools = config.readOnlyTools?.length ? config.readOnlyTools : undefined
   const deps: SideDeps = {
     providerName: config.providerName,
@@ -68,7 +69,6 @@ export function apply(ctx: Context, config: Config): () => void {
     settlementSilence.dispose()
   })
   for (const agent of ctx.agents.list()) restrictChild(agent)
-  ctx.sessionProjections.register(sidechainModesProjection)
   // Commands are an optional surface: without a command registry the plugin
   // still loads harmlessly in minimal deployments.
   ctx.inject(['commands'], (commandCtx) => {
