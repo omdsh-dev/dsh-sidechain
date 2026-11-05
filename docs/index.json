@@ -32,15 +32,15 @@
       },
       "versions": [
         {
-          "version": "0.2.1-rc.5",
-          "publishTimestamp": 1793330515,
+          "version": "0.2.2-rc.1",
+          "publishTimestamp": 1793848775,
           "source": {
             "type": "git",
             "url": "https://github.com/omdsh-dev/dsh-sidechain",
-            "commit": "b83d8717387957f0e179986ad71c1251127fac60"
+            "commit": "05f36961e755767929c40f5b063ab5eca251c22c"
           },
           "engines": {
-            "dsh": ">=0.2.1-rc.2 <=0.2.1-rc.5"
+            "dsh": ">=0.2.1-rc.2 <=0.2.1-rc.5 || 0.2.2-rc.1"
           }
         }
       ]
