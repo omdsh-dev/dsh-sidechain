@@ -20,13 +20,17 @@ Side conversations use the current session's completed history as context and ke
 
 ### From the plugin market
 
-In DSH Web, enable **Custom plugin market** under **Plugins → Experimental plugins → More**, then open **Discover → Add index source** and enter:
+In DSH Web or Desktop, enable **Custom plugin market** under **Plugins → Experimental plugins → More**, then open **Discover → Add index source** and enter:
 
 ```text
 https://omdsh-dev.github.io/dsh-sidechain/index.json
 ```
 
-Find **Sidechain**, check that your DSH version is supported, and install it. The market currently publishes only the latest `0.2.2-rc.1`, which supports DSH `0.2.2-rc.1` and `0.2.1-rc.2` through `0.2.1-rc.5`.
+This URL is for **Add index source**. If using the **Install plugin** input instead, enter `github:omdsh-dev/dsh-sidechain`.
+
+Find **Sidechain**, check that your DSH version is supported, and install it. This project's index currently lists only the latest `0.2.2-rc.1`, which supports DSH `0.2.2-rc.1` and `0.2.1-rc.2` through `0.2.1-rc.5`.
+
+You can also install Sidechain using the indexes provided by [DSH Market](https://dsh.market/) or [dshfind](https://dshfind.com/zh). Copy the index URL from either site into DSH's **Discover → Add index source**, then search for **Sidechain** and install it.
 
 ### From the command line
 
@@ -36,9 +40,15 @@ Install the plugin into the Web profile:
 dsh plugin --profile web add github:omdsh-dev/dsh-sidechain
 ```
 
-Restart DSH Web after installing or updating.
+To install into the Desktop profile, launch Desktop once to initialize it, fully quit the application, then run:
 
-To remove it:
+```sh
+dsh plugin --profile desktop add github:omdsh-dev/dsh-sidechain
+```
+
+Restart the corresponding DSH Web or Desktop application after installing or updating.
+
+To remove it (replace `web` with `desktop` for Desktop):
 
 ```sh
 dsh plugin --profile web remove @dsh-external/dsh-sidechain
@@ -66,4 +76,4 @@ Sidechain filters and blocks tool calls outside this list; the main session is u
 - Both `/side` and `/btw` require a question. Forks include completed turns only, not a turn that is still running.
 - `/side list` lists all direct child conversations in the session, not only threads created by Sidechain.
 - `/btw` is read-only in Sidechain's UI. DSH still stores it as a continuable child session, so other clients or direct API access may allow continuing it.
-- Desktop uses a separate profile. It shares the DSH frontend with Web, but this release has not been tested on Desktop.
+- Installation and use have been verified on Desktop. Desktop and Web use separate profiles; install the plugin separately for each.
