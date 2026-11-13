@@ -21,10 +21,25 @@ import { SIDE_BOUNDARY_PROMPT, SIDE_MODE_LINE, type SideMode } from './prompts.t
 import type { SidechainModes } from './sidechain-projection.ts'
 
 /** Minimal structural face of the subagent service this plugin consumes. */
-export interface SubagentsLike {
-  startActivation(spec: SubagentActivationSpec): Promise<SubagentActivation>
-  listChildren(parentSessionId: SessionId, signal?: AbortSignal): Promise<SubagentCatalogEntry[]>
+export type SideActivation = Pick<SubagentActivation, 'childId' | 'result' | 'dispose'>
+
+export type SubagentsLike = {
   getProvider(name: string): Pick<SubagentProvider, 'name' | 'inheritsParentContext' | 'prepareContinuable'> | undefined
+} & ({
+  startActivation(spec: SubagentActivationSpec): Promise<SideActivation>
+} | {
+  startActivation(spec: Omit<SubagentActivationSpec, 'parent' | 'prompt'> & {
+    request: Pick<SubagentActivationSpec, 'parent' | 'prompt'>
+  }): Promise<SideActivation>
+  listChildren(parentSessionId: SessionId, signal?: AbortSignal): Promise<SubagentCatalogEntry[]>
+})
+
+function startActivation(subagents: SubagentsLike, spec: SubagentActivationSpec): Promise<SideActivation> {
+  if ('listChildren' in subagents) {
+    const { parent, prompt, ...options } = spec
+    return subagents.startActivation({ ...options, request: { parent, prompt } })
+  }
+  return subagents.startActivation(spec)
 }
 
 /** Shared side-conversation behavior for both commands. */
@@ -78,15 +93,13 @@ export function askSideOneShot(
   signal: AbortSignal,
   attachments: readonly ContentBlock[] = [],
   childId?: SessionId,
-): Promise<SubagentActivation> {
-  return subagents.startActivation({
+): Promise<SideActivation> {
+  return startActivation(subagents, {
     provider: deps.providerName,
     label: `BTW: ${truncateLabel(question)}`,
     ...(childId === undefined ? {} : { childId }),
-    request: {
-      prompt: sidePrompt(question, 'btw', attachments, deps.persona),
-      parent,
-    },
+    prompt: sidePrompt(question, 'btw', attachments, deps.persona),
+    parent,
     signal,
     delivery: 'caller',
   })
@@ -105,16 +118,14 @@ export function startSideConversation(
   signal: AbortSignal,
   attachments: readonly ContentBlock[] = [],
   childId?: SessionId,
-): Promise<SubagentActivation> {
+): Promise<SideActivation> {
   const label = truncateLabel(question) || 'Side conversation'
-  return subagents.startActivation({
+  return startActivation(subagents, {
     provider: deps.providerName,
     label,
     ...(childId === undefined ? {} : { childId }),
-    request: {
-      prompt: sidePrompt(question, 'side', attachments, deps.persona),
-      parent,
-    },
+    prompt: sidePrompt(question, 'side', attachments, deps.persona),
+    parent,
     signal,
     delivery: 'caller',
   })

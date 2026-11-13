@@ -21,7 +21,7 @@ export function createSidechainCommands(
   subagents: SubagentsLike,
   deps: SideDeps,
   settlementSilence: Pick<SettlementSilence, 'noteChild' | 'reserveChild'>,
-  projections?: Pick<SessionProjectionRegistry, 'snapshot'>,
+  projections: Pick<SessionProjectionRegistry, 'snapshot'>,
 ): CommandDefinition[] {
   /** Loud hint when the configured provider is absent from the deployment. */
   const missingProvider = (): string | undefined => {
@@ -47,9 +47,10 @@ export function createSidechainCommands(
         const arg = rawInput.trim()
         if (arg === 'list' || arg === 'ls') {
           try {
-            const entries = await subagents.listChildren(agent.session.id, signal)
-            const modes = projections?.snapshot(agent.session, ['sidechainModes']).values.sidechainModes
-            return { kind: 'success', text: formatSideList(entries, modes) }
+            signal.throwIfAborted()
+            const { subagentCatalog, sidechainModes } = projections.snapshot(agent.session, ['subagentCatalog', 'sidechainModes']).values
+            if (subagentCatalog === undefined) throw new Error('subagent catalog projection is not available')
+            return { kind: 'success', text: formatSideList(subagentCatalog, sidechainModes) }
           } catch (error) {
             return { kind: 'error', text: `sidechain: failed to list side conversations: ${messageOf(error)}` }
           }

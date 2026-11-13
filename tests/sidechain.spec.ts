@@ -10,7 +10,8 @@ import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { CommandDefinition, CommandId, CommandInvocation } from '@deepseek-ai/dsh-commands'
 import type { ContentBlock } from '@deepseek-ai/dsh-llm'
-import type { SessionId } from '@deepseek-ai/dsh-session'
+import { SessionSeq, type SessionId } from '@deepseek-ai/dsh-session'
+import type { SessionProjectionRegistry } from '@deepseek-ai/dsh-session-projection'
 import type {
   SubagentActivation,
   SubagentActivationSpec,
@@ -20,6 +21,7 @@ import type {
 import { apply } from '../src/index'
 import { createSidechainCommands } from '../src/commands'
 import { SIDE_BOUNDARY_PROMPT, SIDE_MODE_LINE, SIDE_PERSONA } from '../src/prompts'
+import type { SettlementSilence } from '../src/settle-silence'
 import {
   formatSideList,
   truncateLabel,
@@ -49,24 +51,26 @@ afterEach(() => {
 interface Harness {
   subagents: SubagentsLike & {
     startActivation: ReturnType<typeof vi.fn>
-    listChildren: ReturnType<typeof vi.fn>
     getProvider: ReturnType<typeof vi.fn>
   }
+  projections: { snapshot: ReturnType<typeof vi.fn<SessionProjectionRegistry['snapshot']>> }
   commands: CommandDefinition[]
-  noteChild: ReturnType<typeof vi.fn>
-  reserveChild: ReturnType<typeof vi.fn>
+  noteChild: ReturnType<typeof vi.fn<SettlementSilence['noteChild']>>
+  reserveChild: ReturnType<typeof vi.fn<SettlementSilence['reserveChild']>>
 }
 
 function makeHarness(deps: SideDeps = DEFAULT_DEPS): Harness {
   const subagents = {
     startActivation: vi.fn(),
-    listChildren: vi.fn(),
     getProvider: vi.fn(() => ({ name: deps.providerName, inheritsParentContext: true, prepareContinuable: vi.fn() })),
   } as unknown as Harness['subagents']
-  const noteChild = vi.fn()
-  const reserveChild = vi.fn(() => CHILD_ID)
-  const commands = createSidechainCommands(subagents, deps, { noteChild, reserveChild })
-  return { subagents, commands, noteChild, reserveChild }
+  const projections = { snapshot: vi.fn<SessionProjectionRegistry['snapshot']>(() => ({
+    asOfSeq: SessionSeq(0), values: { subagentCatalog: [], sidechainModes: {} },
+  })) }
+  const noteChild = vi.fn<SettlementSilence['noteChild']>()
+  const reserveChild = vi.fn<SettlementSilence['reserveChild']>(() => CHILD_ID)
+  const commands = createSidechainCommands(subagents, deps, { noteChild, reserveChild }, projections)
+  return { subagents, commands, noteChild, reserveChild, projections }
 }
 
 function invoke(
@@ -155,9 +159,9 @@ describe('/btw (non-blocking one-shot side question)', () => {
       label: 'BTW: what is 6*7?',
       childId: CHILD_ID,
       delivery: 'caller',
-      request: expect.objectContaining({ parent: agent }),
+      parent: agent,
     }))
-    const request = subagents.startActivation.mock.calls[0]![0].request as SubagentStartRequest
+    const request = subagents.startActivation.mock.calls[0]![0] as SubagentStartRequest
     const prompt = textOf(request.prompt[0]!)
     expect(prompt).toContain(SIDE_MODE_LINE.btw)
     expect(prompt).toContain(SIDE_BOUNDARY_PROMPT)
@@ -180,7 +184,7 @@ describe('/btw (non-blocking one-shot side question)', () => {
 
     await invoke(commands[1]!, 'describe this', new AbortController().signal, [image])
 
-    const request = subagents.startActivation.mock.calls[0]![0].request as SubagentStartRequest
+    const request = subagents.startActivation.mock.calls[0]![0] as SubagentStartRequest
     expect(request.prompt).toEqual(expect.arrayContaining([image]))
   })
 
@@ -288,11 +292,11 @@ describe('/side (continuable side thread)', () => {
     expect(spec.childId).toBe(CHILD_ID)
     expect(spec.provider).toBe('fork')
     expect(spec.label).toBe('investigate the plugin seams')
-    expect(spec.request.parent).toBe(agent)
-    const prompt = textOf(spec.request.prompt[0]!)
+    expect(spec.parent).toBe(agent)
+    const prompt = textOf(spec.prompt[0]!)
     expect(prompt).toContain(SIDE_PERSONA)
-    expect(spec.request).not.toHaveProperty('persona')
-    expect(spec.request).not.toHaveProperty('toolFilter')
+    expect(spec).not.toHaveProperty('persona')
+    expect(spec).not.toHaveProperty('toolFilter')
     expect(prompt).toContain(SIDE_MODE_LINE.side)
     expect(prompt).toContain(SIDE_BOUNDARY_PROMPT)
     expect(prompt).toContain('investigate the plugin seams')
@@ -300,29 +304,56 @@ describe('/side (continuable side thread)', () => {
   })
 
   it('lists children of the current session through /side list', async () => {
-    const { subagents, commands } = makeHarness()
-    subagents.listChildren.mockResolvedValue([
-      childEntry({ label: 'seams research' }),
-      childEntry({ mode: 'one-shot', label: 'BTW: quick check' }),
-    ])
+    const { projections, commands } = makeHarness()
+    projections.snapshot.mockReturnValue({ asOfSeq: SessionSeq(0), values: {
+      subagentCatalog: [
+        childEntry({ id: 'other-child' as SessionId, label: 'seams research' }),
+        childEntry({ label: 'quick check' }),
+      ],
+      sidechainModes: { [CHILD_ID]: 'btw' },
+    } })
 
     const result = await invoke(commands[0]!, 'list')
 
-    expect(subagents.listChildren).toHaveBeenCalledWith(PARENT_ID, expect.any(AbortSignal))
+    expect(projections.snapshot).toHaveBeenCalledWith({ id: PARENT_ID }, ['subagentCatalog', 'sidechainModes'])
     expect(result.kind).toBe('success')
     const text = result.kind === 'success' ? result.text : ''
     expect(text).toContain('[side] seams research')
-    expect(text).toContain('[btw] BTW: quick check')
+    expect(text).toContain('[btw] quick check')
   })
 
   it('reports an empty catalog', async () => {
-    const { subagents, commands } = makeHarness()
-    subagents.listChildren.mockResolvedValue([])
+    const { commands } = makeHarness()
 
     const result = await invoke(commands[0]!, 'ls')
 
     expect(result).toEqual({ kind: 'success', text: 'No side conversations yet. Start one with /side <question>.' })
   })
+
+  it('reports an unavailable catalog instead of claiming there are no children', async () => {
+    const { projections, commands } = makeHarness()
+    projections.snapshot.mockReturnValue({ asOfSeq: SessionSeq(0), values: {} })
+    const result = await invoke(commands[0]!, 'list')
+    expect(result.kind).toBe('error')
+    expect(result.text).toContain('catalog projection is not available')
+  })
+})
+
+it('preserves the legacy activation request for previously supported hosts', async () => {
+  const { subagents, projections, noteChild, reserveChild } = makeHarness()
+  const legacy = { ...subagents, listChildren: vi.fn() }
+  const commands = createSidechainCommands(legacy, DEFAULT_DEPS, { noteChild, reserveChild }, projections)
+  for (const command of commands) {
+    const activation = runOf()
+    legacy.startActivation.mockResolvedValue(activation)
+    expect((await invoke(command, 'legacy question')).kind).toBe('success')
+    expect(legacy.startActivation).toHaveBeenLastCalledWith(expect.objectContaining({
+      childId: CHILD_ID, provider: 'fork', delivery: 'caller',
+      request: { parent: agent, prompt: expect.arrayContaining([
+        expect.objectContaining({ type: 'text', text: expect.stringContaining('legacy question') }),
+      ]) },
+    }))
+  }
 })
 
 describe('text helpers', () => {
@@ -388,7 +419,7 @@ describe('plugin wiring', () => {
     harness.subagents.startActivation.mockResolvedValue(run)
     await invoke(registered[1]!, 'question')
 
-    const request = harness.subagents.startActivation.mock.calls[0]![0].request as SubagentStartRequest
+    const request = harness.subagents.startActivation.mock.calls[0]![0] as SubagentStartRequest
     expect(textOf(request.prompt[0]!)).not.toContain(SIDE_PERSONA)
     expect(textOf(request.prompt[0]!)).toContain(SIDE_BOUNDARY_PROMPT)
   })
