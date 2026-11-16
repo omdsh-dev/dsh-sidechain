@@ -28,7 +28,7 @@ https://omdsh-dev.github.io/dsh-sidechain/index.json
 
 This URL is for **Add index source**. If using the **Install plugin** input instead, enter `github:omdsh-dev/dsh-sidechain`.
 
-Find **Sidechain**, check that your DSH version is supported, and install it. Sidechain `0.2.2-rc.2` supports DSH `0.2.2-rc.1`, `0.2.2-rc.2`, and `0.2.1-rc.2` through `0.2.1-rc.5`. This project's index lists only the most recently published plugin version.
+Find **Sidechain**, check that your DSH version is supported, and install it. Sidechain `0.2.2-rc.3` supports DSH `0.2.2-rc.1` through `0.2.2-rc.3` and `0.2.1-rc.2` through `0.2.1-rc.5`. This project's index lists only the most recently published plugin version.
 
 You can also install Sidechain using the indexes provided by [DSH Market](https://dsh.market/) or [dshfind](https://dshfind.com/zh). Copy the index URL from either site into DSH's **Discover → Add index source**, then search for **Sidechain** and install it.
 

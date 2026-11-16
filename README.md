@@ -28,7 +28,7 @@ https://omdsh-dev.github.io/dsh-sidechain/index.json
 
 这个地址用于**添加索引源**；若使用**安装插件**输入框，请填写 `github:omdsh-dev/dsh-sidechain`。
 
-找到 **Sidechain 侧会话**，确认 DSH 版本满足兼容范围后安装。`0.2.2-rc.2` 版插件支持 DSH `0.2.2-rc.1`、`0.2.2-rc.2` 和 `0.2.1-rc.2` 至 `0.2.1-rc.5`；本项目索引只列出最近发布的插件版本。
+找到 **Sidechain 侧会话**，确认 DSH 版本满足兼容范围后安装。`0.2.2-rc.3` 版插件支持 DSH `0.2.2-rc.1` 至 `0.2.2-rc.3` 和 `0.2.1-rc.2` 至 `0.2.1-rc.5`；本项目索引只列出最近发布的插件版本。
 
 也可以通过 [DSH Market](https://dsh.market/) 或 [dshfind](https://dshfind.com/zh) 提供的索引源安装 Sidechain。在对应网站复制索引源地址，添加到 DSH 的**发现 → 添加索引源**，再搜索 **Sidechain** 安装。
 
